@@ -1,0 +1,59 @@
+#include "mbed.h"
+#include "sdm18.h"
+
+BufferedSerial sensor(PA_9, PA_10, 921600);
+BufferedSerial pc(USBTX, USBRX, 115200);
+CAN can(PA_11, PA_12, 1000000);
+sdm18 sdm18_sensor(sensor, can);
+
+DigitalOut led1(PA_1); // 起動確認用LED
+DigitalOut led2(PA_0); // センサーデータ取得確認用LED（光ればOK）
+DigitalOut led4(PB_4); // コマンド確認用LED
+
+FileHandle *mbed::mbed_override_console(int fd) {
+    return &pc;
+}
+
+enum BaudRateHex {
+    baudrate_9600 = 0x00,                        
+    baudrate_115200 = 0x07, 
+    baudrate_921600 = 0x0c, 
+};
+
+int main(){
+    led1 = 1;
+    ThisThread::sleep_for(1000ms);
+    printf("\r\n--- F303K8 SDM18 Bridge Started ---\r\n");
+    
+    // 確実にデータを引き出すため起動時に自動スタート
+    sdm18_sensor.startscan();
+    printf("Initial startscan command sent.\r\n");
+
+    while(1) {
+        CANMessage msg;
+        if (can.read(msg)) {
+            if(msg.id == 0x700 && msg.len > 0){
+                char mode = msg.data[0];
+                printf("CAN RX - Mode: %d\r\n", mode);
+                
+                switch(mode){
+                    case 1: sdm18_sensor.startscan(); break;
+                    case 2: sdm18_sensor.stopscan(); break;
+                    case 3: sdm18_sensor.setbaudrate(baudrate_921600); break;
+                    case 4: led4 = 1; break;
+                    case 5: led4 = 0; break;
+                }
+            }
+        }
+
+        // センサーからデータが正しく取得できたら
+        if(sdm18_sensor.getdata()){
+            led2 = 1; // ここがピカッと光るはず
+            sdm18_sensor.sdm18_send(); // F446REへ送信
+        } else {
+            led2 = 0;
+        }
+        
+        ThisThread::sleep_for(1ms);
+    }
+}
