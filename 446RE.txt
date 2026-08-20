@@ -1,0 +1,37 @@
+#include "mbed.h"
+
+UnbufferedSerial pc(USBTX, USBRX, 115200);
+CAN can1(PA_11, PA_12, 1000000); 
+DigitalOut led(LED1);
+
+int main() {
+    printf("F446RE Receiver Ready...\r\n");
+
+    ThisThread::sleep_for(1500ms); // F303K8の起動を待つ
+
+    CANMessage start_cmd;
+    start_cmd.id = 0x700;
+    start_cmd.len = 1;
+    start_cmd.data[0] = 1; // startscan要求
+
+    printf("Sending Start Command...\r\n");
+    if (can1.write(start_cmd)) {
+        printf("Start Command Sent Successfully.\r\n");
+    } else {
+        printf("Failed to Send Start Command.\r\n");
+    }
+
+    printf("Waiting for sensor data...\r\n");
+
+    while (true) {
+        CANMessage msg;
+        if (can1.read(msg)) {
+            // F303K8から ID: 0x701 で送られてくる距離データを受信
+            if (msg.id == 0x701 && msg.len >= 2) {
+                uint16_t distance = static_cast<uint16_t>(msg.data[0]) | (static_cast<uint16_t>(msg.data[1]) << 8);
+                printf("Distance: %d mm\r\n", distance);
+                led = !led; // 受信ごとにLEDがチカチカ
+            }
+        }
+    }
+}
