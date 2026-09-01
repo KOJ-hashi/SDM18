@@ -1,49 +1,50 @@
-#ifndef sdm18_H_
-#define sdm18_H_
-#include "mbed.h"
-#define CRC16_POLY 0x8005
- 
-/////////////start data//////////////////////////////
-    const int Packet_heade=0xA5;
-    const int Device_number= 0x03;
-    const int Device_type=0x20;
-    const int Command_type_start=0x01;
-    const int Reserved_bit =0x00;
-    const int Data_length =0x00;
-    const int Data_length2=0x00;
-    const int CheckSum_start=0x02;
-    const int CheckSum_start2=0x6E;
-    ///////////////stop data///////////////////////////////////
-    const int Command_type_stop=0x02;
-    const int CheckSum_stop=0x46;
-    const int CheckSum_stop2=0x6E; 
-    /////////////set baud rate///////////////////////////////////
-    const int Command_type_setbaudrate=0x10; 
-    const int Data_length_setbaudrate=0x01;
-    const int BaudRate=0x07;
-    const int CRC_setbaudrate=0xBD;
-    const int CRC_setbaudrate2=0x3F;
- 
-//上記詳細はデータシートで
- 
+#ifndef INCLUDED_SDM18_H
+#define INCLUDED_SDM18_H
+
+#include"mbed.h
+
 class sdm18{
 public:
-    sdm18(BufferedSerial &sensor,CAN &can);
-    bool setbaudrate(char baudrate);
-    uint16_t calculate_crc16(char *buf, int len);
-    bool getdata();//値を取得する関数、正しくとれていたらtrue
-    bool startscan();//スキャンを開始する関数、正しくとれていたらtrue
-    bool stopscan();//スキャンを終了する関数、正しくとれてたらtrue
-    void sdm18_send();//canを送る
+
+sdm18(BufferedSerial& sensor_stream, CAN& can_bus, DigitalOut& led_scan,DigitalOut& led_id,DigitalOut& led_id_spare, DigitalOut& led_boot, uint32_t id);
+
+void init();
+void prpcess();
+
+uint16_t get_latest_distance() const;
+uint32_t get_data_interval() const;
+bool is_data_received() const;
+
 private:
-    CANMessage _canMessage;
-    BufferedSerial &_sensor;
-    CAN &_can;
-    char scan_recv_start[23];//センサから出力される値(始めたとき~動作時)
-    char scan_recv_stop[10];//センサから出力される値(動作終了時)
-    char scan_recv_setbaudrate[10];//センサから出力される値(ボードレート指定時)
-    uint16_t crc_result;//実際にセンサが動作した時の合計値(理論値てきな)
-    uint16_t checksum;//しっかりとセンサが正しい動作をしたかを確かめる変数
-    int _a;
+
+uint16_t calculate_crc16(char *buf, int len);
+void update_id_led();
+
+BufferedSerial& _sensor;
+CAN& _can;
+DigitalOut& _led_id;
+DigitalOut& _led_scan;
+DigitalOut& _led_spare;
+DigitalOut& _led_boot;
+
+uint32_t _id;
+static const uint16_t _crc16_table[256];
+
+uint32_t TIMEOUT = 40;
+
+char buf[23];
+uint16_t latest_distance = 0;
+bool _data_received;
+uint32_t _last_data_ms = 0;
+uint32_t _data_interval_ms = 0;
+bool _first_data = true;
+
+
+Timer _blink_timer;
+bool _blink_init;
+int _state;
+int _current_count;
+int _target_blinks;
 };
+
 #endif
