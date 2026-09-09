@@ -1,7 +1,6 @@
-#include "mbed.h"
-#include "SDM18.h"
+#include "sdm18.h"
 
-const uint16_t sdm18::_crc16_table[256]={
+const uint16_t sdm18::_crc16_table[256] = {
     0x0000, 0xC0C1, 0xC181, 0x0140, 0xC301, 0x03C0, 0x0280, 0xC241,
     0xC601, 0x06C0, 0x0780, 0xC741, 0x0500, 0xC5C1, 0xC481, 0x0440,
     0xCC01, 0x0CC0, 0x0D80, 0xCD41, 0x0F00, 0xCFC1, 0xCE81, 0x0E40,
@@ -36,131 +35,110 @@ const uint16_t sdm18::_crc16_table[256]={
     0x8201, 0x42C0, 0x4380, 0x8341, 0x4100, 0x81C1, 0x8081, 0x4040
 };
 
-sdm18::sdm18(BufferedSerial& sensor, CAN& can, DigitalOut& led_scan, DigitalOut& led,id, DigitalOut& led_spare,Digitalout& led_boot, uint32_t id)
-    :_sensor(sensor), _can(can), _led_scan(led_scan), _led_id(led_id), _led_spare(led_spare), _led_boot(led_boot), _id(id),
-    _latest_distance(0), _data_received(false), _last_data_ms(0), _data_interval_ms(0), _first_data(true),
-    _blink_init(false), _state(0), _current_count(0), _target_blinks(static_cast<int>(id & 0x0F)){
-    }
+sdm18::sdm18(BufferedSerial& sensor, CAN& can, DigitalOut& led_scan, DigitalOut& led_id, DigitalOut& led_spare, DigitalOut& led_boot, uint32_t id)
+    : _sensor(sensor), _can(can), led_scan(led_scan), led_id(led_id), led_spare(led_spare), led_boot(led_boot), _id(id),
+      _latest_distance(0), data_received(false), last_data_ms(0), data_interval_ms(0), first_data(true),
+      blink_init(false), state(0), current_count(0), target_blinks(static_cast<int>(id & 0x0F)) {
+}
 
-
-void sdm18::init(){
-    _led_boot = 1;
-    _led_scan = 0:
-    _led_spare = 0;
-    _led_id = 0;
+void sdm18::init() {
+    led_boot = 1;
+    led_scan = 0;
+    led_spare = 0;
+    led_id = 0;
 
     ThisThread::sleep_for(500ms);
 
-    char cmd_start[9] ={
-        0xA5,
-        0x03,
-        0x20,
-        0x01,
-        0x00,
-        0x00,
-        0x00,
-        0x02,
-        0x6E
-    };
-    _sensor.white(cmd_start, sizeof(cmd_start));
+    char cmd_start[9] = {0xA5, 0x03, 0x20, 0x01, 0x00, 0x00, 0x00, 0x02, 0x6E};
+    _sensor.write(cmd_start, sizeof(cmd_start));
 }
 
-uint16_t sdm18::calculate_crc16(char *buf, int len){
+uint16_t sdm18::calculate_crc16(char *buf, int len) {
     uint16_t crc = 0xFFFF;
-    for (int i = 0; i < len; i++){
-        uint8_t tbl_idx = (crc ^ static_cast<uint8_t>(buf[i])) &0xFF;
-        crc = (crc >> 8) ^ crc16_table[tbl_idx];
+    for (int i = 0; i < len; i++) {
+        uint8_t tbl_idx = (crc ^ static_cast<uint8_t>(buf[i])) & 0xFF;
+        crc = (crc >> 8) ^ _crc16_table[tbl_idx];
     }
     return crc;
 }
 
-void sdm18::update_id_led(){
-    if(!blink_init){
+void sdm18::update_id_led() {
+    if (!blink_init) {
         blink_timer.start();
         blink_init = true;
     }
 
-    if(state == 0){
-        if(blink_timer.elapsed_time() >= 200ms){
+    if (state == 0) {
+        if (blink_timer.elapsed_time() >= 200ms) {
             blink_timer.reset();
-            if(led_id == 0){
+            if (led_id == 0) {
                 led_id = 1;
-            }else {
-                led_id = 1;
+            } else {
+                led_id = 0;
                 current_count++;
-                if(current_count >= target_blinks){
+                if (current_count >= target_blinks) {
                     state = 1;
                     current_count = 0;
                 }
             }
         }
-} else {
-    if(blink_timer.elapsed_time() >= 1000ms){
-        blink_timer.reset();
-        led_id = 0;
-        state = 0;
+    } else {
+        if (blink_timer.elapsed_time() >= 1000ms) {
+            blink_timer.reset();
+            led_id = 0;
+            state = 0;
+        }
     }
 }
-}
 
-void sdm18::process(){
+void sdm18::process() {
     update_id_led();
 
-    if(_sensor.readable()){
+    if (_sensor.readable()) {
         char header = 0;
-        if(_sensor.read(&header, 1) ==1){
-            if(_header == 0xA5){
-                _buf[0] = 0xA5;
+        if (_sensor.read(&header, 1) == 1) {
+            //ヘッダーである0xA5を探す
+            if (header == 0xA5) {
+                buf[0] = 0xA5;
 
-                size_t read\bites = 0;
+                //ヘッダー以外の22バイトを読み込む
+                size_t read_bytes = 0;
                 int timeout = 0;
-                while(read_bytes < 22 && timeout < 10){
-                    ssize_t n = _sensor.read(&_buf[1 + read_bytes], 22 -read_bytes);
-                    if(n > 0){
+                while (read_bytes < 22 && timeout < 10) {
+                    ssize_t n = _sensor.read(&buf[1 + read_bytes], 22 - read_bytes);
+                    if (n > 0) {
                         read_bytes += n;
-                    }else{
+                    } else {
                         wait_us(100);
                         timeout++;
                     }
-                    }
+                }
 
-                    if(read_bytes ==22){
-                        uint32_t now_ms = Kernel::get_ms_count();
+                if (read_bytes == 22) {
+                    uint32_t now_ms = Kernel::get_ms_count();
+                    uint16_t crc = calculate_crc16(buf, 21);
+                    uint16_t checksum = (static_cast<uint8_t>(buf[21]) << 8) | static_cast<uint8_t>(buf[22]);
 
-                        if(!first_data){
-                            data\interval_ms = now_ms - last_data_ms;
-                            if(data_interval_ms > TIMEOUT){
-                                last_data_ms = now_ms;
-                                continue;
-                            }
-                        }
-                    }
-                
-                if(read_bytes == 22){
-                    uint16_t crc = calculate_crc16(_buf, 21);
-                    uint16_t chrcksum = (static_cast<uint8_t>(_buf[21]<<8) | static_cast<uint8_t>(_buf[22]));
-
-                    if(checksum == crc){
-                        uint16_t distance = static_cast<uint16_t>(static_cast<uint8_t>(_buf[13])) | (static_cast<uint16_t)(static_cast<uint8_t>(_buf[14])) << 8);
-
-                        distance += 30;
+                    if (checksum == crc) {
+                        uint16_t distance = static_cast<uint16_t>(static_cast<uint8_t>(buf[13])) | 
+                                            (static_cast<uint16_t>(static_cast<uint8_t>(buf[14])) << 8);
+                        distance += 30; // +30mm補正
                         _latest_distance = distance;
-                        _data_received = true;
+                        data_received = true;
 
                         char can_data[2];
-                        can_data[0] = static_cast<char>(disrance & 0xFF);
+                        can_data[0] = static_cast<char>(distance & 0xFF);
                         can_data[1] = static_cast<char>((distance >> 8) & 0xFF);
-                        _can.white(CANMessage(_id, can_data, 2));
+                        _can.write(CANMessage(_id, can_data, 2));
 
                         uint32_t now_ms = Kernel::get_ms_count();
-                        if(!_first_data){
-                            _data_intervel_ms = now_ms - _last_data_ms;
+                        if (!first_data) {
+                            data_interval_ms = now_ms - last_data_ms;
                         }
-                        _last_data_ms = now_ms;
-                        _first_data = false;
-
-                        _led_scan = !_led_scam;
+                        last_data_ms = now_ms;
+                        first_data = false;
                         
+                        led_scan = !led_scan;
                     }
                 }
             }
@@ -168,13 +146,12 @@ void sdm18::process(){
     }
 }
 
-
-uint16_t sdm18::get_latest_distance() const{
+uint16_t sdm18::get_latest_distance() const {
     return _latest_distance;
-}
-uint32_t sdm18::get_data_interval() const{
-    return _data_interval_ms;
-}
-bool sdm18::data_received() const{
-    return _data_received;
-}
+    }
+uint32_t sdm18::get_data_interval() const {
+    return data_interval_ms;
+    }
+bool sdm18::is_data_received() const {
+    return data_received;
+    }
