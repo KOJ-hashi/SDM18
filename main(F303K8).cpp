@@ -12,7 +12,8 @@ DigitalOut led_boot(PA_1);
 
 
 const uint32_t SDM_ID = 0x702;//SDMのCANのID。0x701~
-const int OFFSET = -140;//SDMの補正値　多分30で大丈夫
+const uint32_t R1_EXTEN = 100;//SDMから車体最前部の角管の鉛直向きの延長線までの距離[mm]
+const int SDM_OFFSET = -140;//SDMの補正値　多分30で大丈夫
 const uint32_t MAX_LIMIT = 10000;
 
 //SDMに開始のためのコマンドを送る
@@ -124,6 +125,7 @@ int main(){
             uint16_t crc =calculate_crc16(buf, 18);
             uint16_t distance = static_cast<uint16_t>(buf[6]) | (static_cast<uint16_t>(buf[7]) << 8);
             if(distance != 0xFFFF){
+                const int OFFSET = R1_EXTEN + SDM_OFFSET;
                 distance +=OFFSET;//補正
                 if(distance > MAX_LIMIT){
                     continue;
