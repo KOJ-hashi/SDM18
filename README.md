@@ -8,14 +8,14 @@
 
 ## mainの例
 
-'''c
+```c
 #include "sdm18.h
 
 int main(){
 SDM_ID(0x701);
 sdm_all;
 }
-'''
+```
 
 ## もし動かなかった場合
 頑張ろう！
