@@ -1,48 +1,22 @@
-#ifndef INCLUDED_SDM18_H
-#define INCLUDED_SDM18_H
-
+#ifndef SDM18_H
+#define SDM18_H
 #include "mbed.h"
 
-class sdm18 {
-public:
-    // main側で定義したピンや通信インスタンスを受け取るコンストラクタ
-    sdm18(BufferedSerial& sensor, CAN& can, DigitalOut& led_scan, DigitalOut& led_id, DigitalOut& led_spare, DigitalOut& led_boot, uint32_t id);
-    
-    void init();
-    void process();
+const uint32_t SDM_OFFSET = -170;//個体自身にかける補正
+const uint32_t R1_EXTEN = 100;//対象SDMから最前部角管の鉛直方向の延長線上までの距離
+const uint32_t MAX_LIMIT = 10000;
 
-    uint16_t get_latest_distance() const;
-    uint32_t get_data_interval() const;
-    bool is_data_received() const;
+const uint32_t OFFSET =SDM_OFFSET + R1_EXTEN;//ロボット最前部を0とする補正
 
-private:
-    uint16_t calculate_crc16(char *buf, int len);
-    void update_id_led();
-    const uint32_t TIMEOUT = 40;
 
-    // 外部（main）から渡されたオブジェクトへの参照を保持
-    BufferedSerial& _sensor;
-    CAN& _can;
-    DigitalOut& led_scan;
-    DigitalOut& led_id;
-    DigitalOut& led_spare;
-    DigitalOut& led_boot;
+void SDM_ID(int _sdm_id);
+// 上位マイコン(F446RE)にCANで送るための関数
+void send_can_data(uint16_t distance);
 
-    const uint32_t _id;
-    static const uint16_t _crc16_table[256];
+// SDMの書き込んだIDを確認するLED
+void id_led();
 
-    char buf[23];
-    uint16_t _latest_distance;
-    bool data_received;
-    uint32_t last_data_ms;
-    uint32_t data_interval_ms;
-    bool first_data;
-
-    Timer blink_timer;
-    bool blink_init;
-    int state;
-    int current_count;
-    int target_blinks;
-};
+// センサーの初期化とメインループ処理を行う関数
+void sdm_all();
 
 #endif
