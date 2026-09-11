@@ -9,7 +9,7 @@
 ## mainの例というよりmain.cppそのもの
 
 ```c
-#include "sdm18.h
+#include "sdm18.h"
 
 int main(){
 SDM_ID(0x701);
