@@ -8,7 +8,6 @@ const uint32_t MAX_LIMIT = 10000;
 
 const uint32_t OFFSET =SDM_OFFSET + R1_EXTEN;//ロボット最前部を0とする補正
 
-
 void SDM_ID(int _sdm_id);
 // 上位マイコン(F446RE)にCANで送るための関数
 void send_can_data(uint16_t distance);
