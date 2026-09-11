@@ -25,7 +25,6 @@ const uint8_t cmd_start[]={
     0x6E
 };
 
-
 //SDMのIDを決める0x701 ~
 void SDM_ID(int _sdm_id){
     sdm_id = static_cast <uint32_t>(_sdm_id);
